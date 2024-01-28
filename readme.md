@@ -7,10 +7,6 @@
 # Todo:
 
 ### SPOTIFY:
-- Save images for pause, play and current
-- Train the model 
-- Pause play and get current with the model 
-
 - Add tailwindcss with react or without, and make it look better
  (this can be done on the day of the hackathon)
 
@@ -22,4 +18,6 @@
 
 ### THINGS THAT ARE DONE:
 - pause play without the model 
-- 
+- Save images for pause, play and current
+- Train the model 
+- Pause play and get current with the model 
