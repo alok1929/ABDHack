@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Spotify Web Playback SDK Quick Start</title>
+</head>
+
+<body>
+    <h1>Spotify Web Playback SDK Quick Start</h1>
+
+    <ul id="songInfo"></ul>
+    <div>Teachable Machine Image Model</div>
+    <button type="button" onclick="init()">Start</button>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script>
+        let model, webcam, labelContainer, maxPredictions;
+        const threshold = 0.75; // Threshold for triggering actions
+        const delay = 5000; // Delay in milliseconds before attempting to predict again
+        let lastPredictionTime = 0;
+        let player;
+
+        async function init() {
+            const URL = "https://teachablemachine.withgoogle.com/models/ipA8YLyMm/";
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            // Load the Teachable Machine model
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Setup the webcam
+            const flip = true; // whether to flip the webcam
+            webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+            await webcam.setup(); // request access to the webcam
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            // Append webcam to the DOM
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) { // Add class labels
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        async function loop() {
+            webcam.update(); // Update the webcam frame
+            const currentTime = Date.now();
+            if (currentTime - lastPredictionTime >= delay) {
+                await predict(); // Run prediction if enough time has elapsed
+                lastPredictionTime = currentTime;
+            }
+            window.requestAnimationFrame(loop);
+        }
+
+        let actionTriggered = false;
+        const consecutiveDuration = 5; // Number of consecutive frames the probability must stay below the threshold to reset the action trigger
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            let consecutiveCount = 0; // Counter for consecutive frames with probability below threshold
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+
+                // Check if prediction probability exceeds 0.99
+                if (prediction[i].probability > 0.99) {
+                    if (!actionTriggered) {
+                        handlePrediction(prediction[i].className);
+                        actionTriggered = true;
+                    }
+                    // Reset consecutive count if action has been triggered
+                    consecutiveCount = 0;
+                } else {
+                    // Increment consecutive count if probability is below threshold
+                    consecutiveCount++;
+                    // Reset action trigger if consecutive count exceeds threshold duration
+                    if (consecutiveCount >= consecutiveDuration) {
+                        actionTriggered = false;
+                    }
+                }
+            }
+        }
+
+
+
+        function handlePrediction(className) {
+            // Handle actions based on predicted class
+            switch (className) {
+                case "play":
+                    player.togglePlay().then(() => {
+                        console.log("Playing");
+                    });
+                    break;
+                case "pause":
+                    player.nextTrack().then(() => {
+                        console.log('Skipped to the next track!');
+                    });
+                    break;
+                case "human":
+                    player.getCurrentState().then(state => {
+                        if (!state) {
+                            console.error('User is not playing music through the Web Playback SDK');
+                            return;
+                        }
+
+                        var current_track = state.track_window.current_track;
+                        var next_track = state.track_window.next_tracks[0];
+
+                        // Display the 'metadata' key and value
+                        var songInfoElement = document.getElementById('songInfo');
+                        songInfoElement.innerHTML = ''; // Clear previous content
+
+                        if (current_track && current_track.name) {
+                            var listItem = document.createElement('li');
+                            listItem.textContent = current_track.name;
+                            songInfoElement.appendChild(listItem);
+                        } else {
+                            var listItem = document.createElement('li');
+                            listItem.textContent = 'No metadata available for the current track';
+                            songInfoElement.appendChild(listItem);
+                        }
+
+                        console.log('Currently Playing', current_track);
+                        console.log('Playing Next', next_track);
+                    });
+
+                    player.connect();
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        window.onSpotifyWebPlaybackSDKReady = () => {
+            const token = 'BQDmYZtxUXB7tmLB2IjM84c7iGd5cnBDpbWOFFkcflmgv5e0-WGbcwNCRzb7Y7GWDp9MzSlBNuRvQz_TZwDPYWHSX8EQltVLp6iryahigFA46iY6HQhpNuYLoxE6Mlbxv010toJLJGv0wkwU0xtdlpuwIhwI7eBr5IGuAtUZxir0XytFc1MeonSoTp2GvB0K5nqsaZbL64H5E-cWJE9ADYQjMzQ4FqDA';
+            player = new Spotify.Player({
+                name: 'Web Playback SDK Quick Start Player',
+                getOAuthToken: cb => { cb(token); },
+                volume: 0.5
+            });
+
+            // Ready
+            player.addListener('ready', ({ device_id }) => {
+                console.log('Ready with Device ID', device_id);
+            });
+
+            // Not Ready
+            player.addListener('not_ready', ({ device_id }) => {
+                console.log('Device ID has gone offline', device_id);
+            });
+
+            player.addListener('initialization_error', ({ message }) => {
+                console.error(message);
+            });
+
+            player.addListener('authentication_error', ({ message }) => {
+                console.error(message);
+            });
+
+            player.addListener('account_error', ({ message }) => {
+                console.error(message);
+            });
+
+            player.connect();
+        };
+    </script>
+</body>
+
+</html>

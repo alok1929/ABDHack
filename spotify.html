@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Spotify Web Playback SDK Quick Start</title>
+</head>
+
+<body>
+    <h1>Spotify Web Playback SDK Quick Start</h1>
+    <button id="togglePlay">Toggle Play</button>
+    <br>
+    <button id="togglevol">Toggle volume</button>
+    <br>
+    <button id="nexttrack">Next</button>
+    <br>
+    <button id="currentstate">Currently</button>
+    <ul id="songInfo"></ul>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script>
+        window.onSpotifyWebPlaybackSDKReady = () => {
+            const token = 'BQDRETb1T3kp-UohaxrsF5T3d0aj5LYCCTLI1XjLeh2JBw_ctLDPg980gCsWylGOTK1NNr8VVzJt5EwUR20rArf8dzI8xEN8Hut3UBl6tIhMVMKDChjfCo1uszHHVYa0_YR1F4awEeopHVxxDMuuGAbhThYtwHW_M1-9o8bwjU5lmFCKUlwLDkMQLcTdQodY-zh8Qgn6MH6XeKLkrJUxBoTnvGB_L0zx';
+            const player = new Spotify.Player({
+                name: 'Web Playback SDK Quick Start Player',
+                getOAuthToken: cb => { cb(token); },
+                volume: 0.5
+            });
+
+            // Ready
+            player.addListener('ready', ({ device_id }) => {
+                console.log('Ready with Device ID', device_id);
+            });
+
+            // Not Ready
+            player.addListener('not_ready', ({ device_id }) => {
+                console.log('Device ID has gone offline', device_id);
+            });
+
+            player.addListener('initialization_error', ({ message }) => {
+                console.error(message);
+            });
+
+            player.addListener('authentication_error', ({ message }) => {
+                console.error(message);
+            });
+
+            player.addListener('account_error', ({ message }) => {
+                console.error(message);
+            });
+
+            document.getElementById('togglePlay').onclick = function () {
+                player.togglePlay();
+            };
+
+            document.getElementById('togglevol').onclick = function () {
+                player.setVolume(0.75).then(() => {
+                    console.log('Volume updated!');
+                });
+            };
+
+            document.getElementById('nexttrack').onclick = function () {
+                player.nextTrack().then(() => {
+                    console.log('Skipped to the next track!');
+                });
+            };
+
+            document.getElementById('currentstate').onclick = function () {
+                player.getCurrentState().then(state => {
+                    if (!state) {
+                        console.error('User is not playing music through the Web Playback SDK');
+                        return;
+                    }
+
+                    var current_track = state.track_window.current_track;
+                    var next_track = state.track_window.next_tracks[0];
+
+                    // Display the 'metadata' key and value
+                    var songInfoElement = document.getElementById('songInfo');
+                    songInfoElement.innerHTML = ''; // Clear previous content
+
+                    if (current_track && current_track.name) {
+                        var listItem = document.createElement('li');
+                        listItem.textContent = current_track.name;
+                        songInfoElement.appendChild(listItem);
+                    } else {
+                        var listItem = document.createElement('li');
+                        listItem.textContent = 'No metadata available for the current track';
+                        songInfoElement.appendChild(listItem);
+                    }
+
+                    console.log('Currently Playing', current_track);
+                    console.log('Playing Next', next_track);
+                });
+
+                player.connect();
+            };
+        };
+    </script>
+</body>
+
+</html>
